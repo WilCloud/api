@@ -27,6 +27,7 @@ def random_number(length=6):
 class UserViewSet(GenericViewSet, mixins.RetrieveModelMixin):
     queryset = User.objects.all()
     serializer_class = UserSerializer
+    permission_classes = []
     lookup_field = 'username'
 
     @action(url_path='login',
@@ -42,13 +43,13 @@ class UserViewSet(GenericViewSet, mixins.RetrieveModelMixin):
         if not user.exists():
             return Response({
                 'status': 'forbidden',
-                'message': 'user.not_found'
+                'message': ['error.not_found', 'user.user']
             })
         user = user.first()
         if not user.is_active:
             return Response({
                 'status': 'forbidden',
-                'message': 'user.not_active'
+                'message': ['error.banned', 'user.user']
             })
 
         flag = False
@@ -57,7 +58,7 @@ class UserViewSet(GenericViewSet, mixins.RetrieveModelMixin):
         if not flag:
             return Response({
                 'status': 'forbidden',
-                'message': 'user.wrong_password'
+                'message': 'error.wrong_password'
             })
 
         login(request, user)
@@ -67,14 +68,17 @@ class UserViewSet(GenericViewSet, mixins.RetrieveModelMixin):
 
         return Response({
             'status': 'success',
-            'message': 'user.login_success',
+            'message': ['success.success', 'user.login'],
             'data': UserDetailSerializer(user).data,
         })
 
     @action(url_path='logout', methods=['POST'], detail=False)
     def logout(self, request):
         logout(request)
-        return Response({'status': 'success', 'message': 'user.logout_success'})
+        return Response({
+            'status': 'success',
+            'message': ['success.success', 'user.logout'],
+        })
 
     @action(url_path='register',
             methods=['POST'],
@@ -88,23 +92,26 @@ class UserViewSet(GenericViewSet, mixins.RetrieveModelMixin):
         if User.objects.filter(username=username).exists():
             return Response({
                 'status': 'forbidden',
-                'message': 'user.username_in_use'
+                'message': ['error.in_use', 'user.username']
             })
         elif User.objects.filter(email=email).exists():
             return Response({
                 'status': 'forbidden',
-                'message': 'user.email_in_use'
+                'message': ['error.in_use', 'user.email']
             })
 
-        user = User.create_user(username=username,
-                                password=password,
-                                email=email)
+        user = User.objects.create(
+            username=username,
+            email=email,
+        )
+        user.set_password(password)
+        user.save()
 
         login(request, user)
 
         return Response({
             'status': 'success',
-            'message': 'user.register_success',
+            'message': ['success.success', 'user.register'],
         })
 
     @action(url_path='info', methods=['GET', 'PUT'], detail=False)
@@ -122,7 +129,7 @@ class UserViewSet(GenericViewSet, mixins.RetrieveModelMixin):
                 if not user.check_password(old_password):
                     return Response({
                         'status': 'forbidden',
-                        'message': 'user.wrong_password'
+                        'message': 'error.wrong_password'
                     })
                 user.set_password(request.data['new_password'])
             serializer = UserDetailSerializer(user,
@@ -133,7 +140,7 @@ class UserViewSet(GenericViewSet, mixins.RetrieveModelMixin):
             data = serializer.data
 
         elif user.is_authenticated:
-            data = UserDetailSerializer(user)
+            data = UserDetailSerializer(user).data
 
         else:
             data = None
