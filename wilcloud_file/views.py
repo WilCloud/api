@@ -11,7 +11,8 @@ from wilcloud_storage.models import Storage
 from wilcloud_storage.engines import local
 from wilcloud_storage.utils import update_source_name
 from .models import File, Folder
-from .serializers import FileSerializer, FolderSerializer
+from .serializers import FileSerializer, FolderSerializer, FileBriefSerializer, FolderBriefSerializer
+from wilcloud.pagination import WilCloudPagination
 
 
 class UploadViewSet(GenericViewSet):
@@ -74,6 +75,88 @@ class UploadViewSet(GenericViewSet):
 class FolderViewSet(GenericViewSet):
     permission_classes = [IsAuthenticated]
 
+    def get_object(self):
+        request = self.request
+        user = request.user
+        if request.GET.get('path'):
+            path = request.GET.get('path', '').strip('/').split('/')
+            if path[0] != '':
+                path = [''] + path
+            q = Folder.objects.filter(path=path[:-1],
+                                      name=path[-1],
+                                      owner=user)
+            if not q.exists():
+                return None
+            return q.first()
+        # return self.get_queryset().get(id=self.kwargs['pk'])
+
+    def list(self, request):
+        folder = self.get_object()
+        return Response({
+            'status': 'success',
+            'data': FolderSerializer(folder).data,
+        })
+
+    @action(detail=False, methods=['GET'], url_path='list')
+    def list_children(self, request):
+        folder = self.get_object()
+
+        page = int(request.GET.get('page', 1))
+        page_size = int(
+            request.GET.get('page_size', WilCloudPagination.page_size))
+        if page_size < 1 or page_size > WilCloudPagination.max_page_size:
+            page_size = WilCloudPagination.page_size
+
+        order_by = request.GET.get('order_by', '-id')
+
+        child_folders = Folder.objects.filter(parent=folder).order_by(order_by)
+        child_files = File.objects.filter(parent=folder).order_by(order_by)
+
+        child_folder_cnt = child_folders.count()
+        child_file_cnt = child_files.count()
+        total_cnt = child_folder_cnt + child_file_cnt
+
+        start = (page - 1) * page_size
+        end = start + page_size
+
+        if start >= total_cnt:
+            return Response({
+                'status': 'error',
+                'message': ['error.not_found'],
+            })
+
+        if start >= child_folder_cnt:
+            start -= child_folder_cnt
+            end -= child_folder_cnt
+
+            child_folders = []
+            child_files = child_files[start:min(end, child_file_cnt)]
+        elif end <= child_folder_cnt:
+            child_folders = child_folders[start:end]
+            child_files = []
+        else:
+            child_folders = child_folders[start:]
+            child_files = child_files[:end - child_folder_cnt]
+
+        folder_data = FolderBriefSerializer(child_folders, many=True).data
+        file_data = FileBriefSerializer(child_files, many=True).data
+
+        for i in folder_data:
+            i['type'] = 'folder'
+
+        for i in file_data:
+            i['type'] = 'file'
+
+        data = folder_data + file_data
+
+        return Response({
+            'status': 'success',
+            'data': {
+                'count': total_cnt,
+                'results': data,
+            },
+        })
+
     def create(self, request):
         user = request.user
         parent = Folder.objects.get(id=request.data['parent_id'])
@@ -86,20 +169,3 @@ class FolderViewSet(GenericViewSet):
                               path=parent.path + [parent.name],
                               parents=parent.parents + [parent.id])
         return Response({'status': 'success'})
-
-    @action(detail=False, methods=['GET'], url_path='list')
-    def list_folder(self, request):
-        user = request.user
-        path = request.GET.get('path', '').strip('/').split('/')
-        if path[0] != '':
-            path = [''] + path
-        q = Folder.objects.filter(path=path[:-1], name=path[-1])
-        if not q.exists():
-            return Response({
-                'status': 'error',
-                'message': ['error.not_found', 'file.folder'],
-            })
-        return Response({
-            'status': 'success',
-            'data': FolderSerializer(q.first(), many=False).data,
-        })

@@ -6,7 +6,7 @@ class FolderBriefSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Folder
-        fields = read_only_fields = ['id', 'name', 'path', 'parents']
+        fields = read_only_fields = ['id', 'name', 'create_time']
 
 
 class FileBriefSerializer(serializers.ModelSerializer):
@@ -28,8 +28,7 @@ class FileSerializer(serializers.ModelSerializer):
 
 
 class FolderSerializer(serializers.ModelSerializer):
-    files = FileBriefSerializer(many=True)
 
     class Meta:
         model = Folder
-        fields = read_only_fields = ['id', 'name', 'path', 'parents', 'files']
+        fields = read_only_fields = ['id', 'name', 'path', 'parents']
