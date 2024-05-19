@@ -10,8 +10,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 import wilcloud.drf_mixins as mixins
-from .models import User, Apikey
+from .models import User, Apikey, UserGroup
 from .serializers import UserSerializer, UserDetailSerializer, ApikeySerializer
+from wilcloud_file.models import Folder
 
 
 def random_string(length=4):
@@ -100,12 +101,21 @@ class UserViewSet(GenericViewSet, mixins.RetrieveModelMixin):
                 'message': ['error.in_use', 'user.email']
             })
 
+        group = UserGroup.objects.order_by('id').first()
         user = User.objects.create(
             username=username,
             email=email,
+            group=group,
         )
         user.set_password(password)
         user.save()
+
+        Folder.objects.create(
+            owner=user,
+            name='',
+            path=[],
+            parents=[],
+        )
 
         login(request, user)
 

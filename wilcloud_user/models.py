@@ -4,11 +4,24 @@ from django.db import models
 from django.utils import timezone
 from django.utils.deconstruct import deconstructible
 
+from wilcloud_storage.models import Storage
+
 
 @deconstructible
 class UsernameValidator(validators.RegexValidator):
     regex = r'^[\w-_]+\Z'
     flags = 0
+
+
+class UserGroup(models.Model):
+    name = models.CharField(max_length=32, unique=True)
+    space = models.BigIntegerField()
+
+    storages = models.ManyToManyField(Storage)
+
+    allow_source_link = models.BooleanField(default=True)
+    allow_share = models.BooleanField(default=True)
+    allow_api = models.BooleanField(default=True)
 
 
 class User(AbstractBaseUser, UserManager):
@@ -26,6 +39,10 @@ class User(AbstractBaseUser, UserManager):
     date_joined = models.DateTimeField(default=timezone.now)
     totp_secret = models.CharField(max_length=16, null=True, blank=True)
     preference = models.JSONField(default=dict)
+    group = models.ForeignKey(UserGroup,
+                              on_delete=models.PROTECT,
+                              related_name='users')
+    used_space = models.BigIntegerField(default=0)
 
     objects = UserManager()
 
