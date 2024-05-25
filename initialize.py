@@ -10,7 +10,7 @@ if not Storage.objects.exists():
     storage = Storage.objects.create(id=1,
                                      name='Local Storage',
                                      type=StorageTypeChoices.LOCAL,
-                                     dir_name_rule='{username}/{folder_name}',
+                                     dir_name_rule='{username}/{file_path}',
                                      file_name_rule='{file_name}')
 else:
     storage = Storage.objects.order_by('id').first()

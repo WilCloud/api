@@ -19,8 +19,11 @@ def is_safe_filename(filename):
 
 
 def handle_name(name, file, dt: datetime):
-    name = name.replace('{filepath}', '/'.join(file.parent.path).strip('/'))
-    name = name.replace('{filename}', file.name)
+    name = name.replace('{file_path}', '/'.join(file.parent.path).strip('/'))
+    name = name.replace('{file_name}', file.name)
+
+    name = name.replace('{userid}', file.owner.id)
+    name = name.replace('{username}', file.owner.username)
 
     name = name.replace('{timestamp}', str(int(dt.timestamp())))
 
