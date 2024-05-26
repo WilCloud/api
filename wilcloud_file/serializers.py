@@ -25,10 +25,14 @@ class FileSerializer(serializers.ModelSerializer):
             'id', 'name', 'create_time', 'update_time', 'size', 'uploaded',
             'parent'
         ]
+        read_only_fields = [
+            'id', 'create_time', 'update_time', 'size', 'uploaded', 'parent'
+        ]
 
 
 class FolderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Folder
-        fields = read_only_fields = ['id', 'name', 'path', 'parents']
+        fields = ['id', 'name', 'create_time', 'path', 'parents']
+        read_only_fields = ['id', 'create_time', 'path', 'parents']

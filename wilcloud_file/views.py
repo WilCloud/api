@@ -96,7 +96,7 @@ class DownloadViewSet(GenericViewSet):
 
 
 class FileViewSet(GenericViewSet, mixins.RetrieveModelMixin,
-                  mixins.DestroyModelMixin):
+                  mixins.DestroyModelMixin, mixins.UpdateModelMixin):
     permission_classes = [IsAuthenticated]
     serializer_class = FileSerializer
 
@@ -115,26 +115,38 @@ class FileViewSet(GenericViewSet, mixins.RetrieveModelMixin,
         })
 
 
-class FolderViewSet(GenericViewSet, mixins.DestroyModelMixin):
+class FolderViewSet(GenericViewSet, mixins.DestroyModelMixin,
+                    mixins.UpdateModelMixin):
     permission_classes = [IsAuthenticated]
+    serializer_class = FolderSerializer
+
+    def get_queryset(self):
+        return Folder.objects.filter(owner=self.request.user, deleted=False)
 
     def get_object(self):
+        try:
+            obj = super().get_object()
+            if obj:
+                return obj
+        except AssertionError:
+            ...
+
         request = self.request
         user = request.user
         if request.GET.get('path'):
             path = request.GET.get('path', '').strip('/').split('/')
             if path[0] != '':
                 path = [''] + path
-            q = Folder.objects.filter(
+            q = self.get_queryset().filter(
                 path=path[:-1],
                 name=path[-1],
-                owner=user,
             )
             if not q.exists():
                 return None
             return q.first()
 
     def list(self, request):
+        # Retrieve folder by path
         folder = self.get_object()
         return Response({
             'status': 'success',
