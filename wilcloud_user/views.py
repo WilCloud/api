@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 import wilcloud.drf_mixins as mixins
 from .models import User, Apikey, UserGroup
-from .serializers import UserSerializer, UserDetailSerializer, ApikeySerializer
+from .serializers import UserSerializer, UserDetailSerializer, ApikeySerializer, UpdatePasswordSerializer
 from wilcloud_file.models import Folder
 
 
@@ -156,6 +156,27 @@ class UserViewSet(GenericViewSet, mixins.RetrieveModelMixin):
             data = None
 
         return Response({'status': 'success', 'data': data})
+
+    @action(url_path='password',
+            methods=['POST'],
+            detail=False,
+            permission_classes=[IsAuthenticated])
+    def update_password(self, request):
+        serializer = UpdatePasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = request.user
+        if not user.check_password(
+                serializer.validated_data['original_password']):
+            return Response({
+                'status': 'forbidden',
+                'message': 'error.wrong_password'
+            })
+        user.set_password(serializer.validated_data['new_password'])
+        user.save()
+        return Response({
+            'status': 'success',
+            'message': ['success.success', 'user.update_password'],
+        })
 
 
 class ApikeyViewSet(GenericViewSet, mixins.ListModelMixin):
